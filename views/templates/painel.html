@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% block titulo %}Meu WhatsApp — Prêmio Sistemas{% endblock %}
+
+{% set conectada = instancia and instancia.status == 'conectada' %}
+{% set oculto = '' if conectada else ' oculto' %}
+{% set dias_nomes = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] %}
+{% set dias_ativos = horario.dias if horario.dias else [0, 1, 2, 3, 4] %}
+
+{% block corpo %}
+<header class="topo">
+    <div class="topo-interno">
+        {% include "components/marca.html" %}
+        <div class="topo-conta">
+            <span class="topo-empresa" title="{{ cliente.empresa }}">{{ cliente.empresa }}</span>
+            <a class="btn secundario pequeno" href="{{ url_for('auth.logout') }}">Sair</a>
+        </div>
+    </div>
+</header>
+
+<main class="conteudo">
+    <div class="cabecalho-pagina">
+        <h1>Meu WhatsApp</h1>
+        <p>Conecte o número da sua empresa, configure as respostas automáticas e envie
+           mensagens pelo seu próprio sistema.</p>
+    </div>
+
+    <!-- ------------------------------------------------------------ conexão -->
+    <section class="cartao" id="cartao-conexao">
+        <div class="cartao-topo">
+            <h2>Conexão</h2>
+            <span class="selo {{ instancia.status if instancia else '' }}" id="selo-status">
+                {% if instancia %}{{ instancia.status }}{% else %}sem número{% endif %}
+            </span>
+        </div>
+
+        {% if not instancia %}
+        <p class="cartao-sub" id="texto-conexao">
+            Você ainda não tem um número conectado. Crie a conexão e leia o QR Code com
+            o WhatsApp do celular da empresa.
+        </p>
+        <div class="acoes">
+            <button class="btn" id="btn-criar">Criar instância</button>
+        </div>
+        {% else %}
+        <p class="cartao-sub" id="texto-conexao">
+            {% if conectada %}Seu WhatsApp está conectado e respondendo.
+            {% else %}Leia o QR Code para conectar o WhatsApp da empresa.{% endif %}
+        </p>
+        <div class="numero-conectado" id="numero" {% if not instancia.numero %}hidden{% endif %}>
+            {{ instancia.numero or '' }}
+        </div>
+        <div class="acoes">
+            <button class="btn{% if conectada %} secundario{% endif %}" id="btn-conectar"
+                    {% if conectada %}hidden{% endif %}>Gerar QR Code</button>
+            <button class="btn secundario" id="btn-reiniciar">Reiniciar conexão</button>
+            <button class="btn perigo" id="btn-desconectar"
+                    {% if not conectada %}hidden{% endif %}>Desconectar</button>
+        </div>
+        {% endif %}
+
+        <div class="qr-area" id="qr-area" hidden>
+            <!-- a imagem do QR é criada pelo JS quando o código chega -->
+            <div id="qr-slot"></div>
+            <ol class="qr-passos">
+                <li>Abra o WhatsApp no celular da empresa</li>
+                <li>Toque em <strong>Mais opções</strong> › <strong>Aparelhos conectados</strong></li>
+                <li>Toque em <strong>Conectar aparelho</strong> e aponte para o código</li>
+            </ol>
+        </div>
+
+        <div class="aviso" id="aviso-conexao" role="status"></div>
+    </section>
+
+    <!-- ----------------------------------------------------------- saudação -->
+    <section class="cartao{{ oculto }}" id="cartao-saudacao">
+        <div class="cartao-topo">
+            <h2>Mensagem de saudação</h2>
+        </div>
+        <p class="cartao-sub">
+            Enviada automaticamente a quem te manda mensagem. Não vale para grupos nem
+            listas de transmissão.
+        </p>
+
+        <div class="campo">
+            <label class="interruptor">
+                <input type="checkbox" id="saudacao-ativo" {% if saudacao.ativo %}checked{% endif %}>
+                <span class="interruptor-trilha"></span>
+                <span class="interruptor-texto">Responder automaticamente</span>
+            </label>
+        </div>
+
+        <div class="campo">
+            <label for="saudacao-mensagem">Mensagem</label>
+            <textarea id="saudacao-mensagem" rows="4" maxlength="1000"
+                      placeholder="Olá! 👋 Obrigado pelo seu contato. Já recebemos sua mensagem e vamos te responder em instantes.">{{ saudacao.mensagem or '' }}</textarea>
+            <div class="dica">
+                A mensagem sai com “digitando…” antes, no ritmo de quem escreve de verdade.
+            </div>
+        </div>
+
+        <div class="campo">
+            <label for="saudacao-janela">Repetir no máximo a cada</label>
+            <div class="linha-tempo">
+                <input type="number" id="saudacao-janela" min="1" max="720"
+                       value="{{ saudacao.janela_horas or janela_padrao }}" style="width:92px">
+                <span>horas, por contato</span>
+            </div>
+            <div class="dica">
+                Evita que o mesmo cliente receba a saudação a cada mensagem que manda.
+            </div>
+        </div>
+
+        <div class="acoes direita">
+            <button class="btn" id="btn-salvar-saudacao">Salvar saudação</button>
+        </div>
+        <div class="aviso" id="aviso-saudacao" role="status"></div>
+    </section>
+
+    <!-- ------------------------------------------------- horário / ausência -->
+    <section class="cartao{{ oculto }}" id="cartao-horario">
+        <div class="cartao-topo">
+            <h2>Horário de funcionamento</h2>
+        </div>
+        <p class="cartao-sub">
+            Fora do horário, quem te chamar recebe a mensagem de ausência em vez da
+            saudação. Com o controle desligado, você é considerado sempre aberto.
+        </p>
+
+        <div class="campo">
+            <label class="interruptor">
+                <input type="checkbox" id="horario-ativo" {% if horario.ativo %}checked{% endif %}>
+                <span class="interruptor-trilha"></span>
+                <span class="interruptor-texto">Controlar horário</span>
+            </label>
+        </div>
+
+        <div class="campo">
+            <label>Dias de funcionamento</label>
+            <div class="dias">
+                {% for nome in dias_nomes %}
+                <label class="dia">
+                    <input type="checkbox" data-dia="{{ loop.index0 }}"
+                           {% if loop.index0 in dias_ativos %}checked{% endif %}>
+                    <span>{{ nome }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Expediente</label>
+            <div class="linha-tempo">
+                <input type="time" id="horario-inicio" value="{{ horario.inicio or '08:00' }}">
+                <span>às</span>
+                <input type="time" id="horario-fim" value="{{ horario.fim or '18:00' }}">
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Intervalo</label>
+            <div class="linha-tempo">
+                <input type="time" id="horario-intervalo-inicio" value="{{ horario.intervalo_inicio or '' }}">
+                <span>às</span>
+                <input type="time" id="horario-intervalo-fim" value="{{ horario.intervalo_fim or '' }}">
+            </div>
+            <div class="dica">Pausa no meio do dia (almoço). Em branco = jornada corrida.</div>
+        </div>
+
+        <div class="campo">
+            <label for="horario-msg">Mensagem de ausência</label>
+            <textarea id="horario-msg" rows="3" maxlength="1000"
+                      placeholder="Em branco = mensagem padrão, montada com os dias e horários acima.">{{ horario.msg_fora or '' }}</textarea>
+        </div>
+
+        <div class="acoes direita">
+            <button class="btn" id="btn-salvar-horario">Salvar horário</button>
+        </div>
+        <div class="aviso" id="aviso-horario" role="status"></div>
+    </section>
+
+    <!-- ----------------------------------------------------- publicar status -->
+    <section class="cartao{{ oculto }}" id="cartao-status">
+        <div class="cartao-topo">
+            <h2>Publicar status</h2>
+        </div>
+        <p class="cartao-sub">
+            Publica uma imagem com legenda no status do seu WhatsApp, na hora. Seus
+            contatos veem como qualquer outro status.
+        </p>
+
+        <div class="campo">
+            <label class="arquivo" for="status-imagem">
+                <input type="file" id="status-imagem" accept="image/jpeg,image/png,image/webp">
+                <span id="status-arquivo-nome">
+                    <strong>Escolher imagem</strong> — JPG, PNG ou WebP, até {{ max_imagem_mb }} MB
+                </span>
+            </label>
+            <!-- a prévia é montada pelo JS ao escolher o arquivo -->
+            <div class="previa" id="status-previa"></div>
+        </div>
+
+        <div class="campo">
+            <label for="status-legenda">Legenda</label>
+            <textarea id="status-legenda" rows="2" maxlength="700"
+                      placeholder="Promoção de hoje!"></textarea>
+        </div>
+
+        <div class="acoes direita">
+            <button class="btn" id="btn-publicar">Publicar agora</button>
+        </div>
+        <div class="aviso" id="aviso-status" role="status"></div>
+    </section>
+
+    <!-- -------------------------------------------------------- API de envio -->
+    <section class="cartao{{ oculto }}" id="cartao-api">
+        <div class="cartao-topo">
+            <h2>API de envio</h2>
+        </div>
+        <p class="cartao-sub">
+            Use este token no seu sistema para enviar mensagens e imagens pelo seu
+            WhatsApp. Guarde-o como uma senha — quem tem o token envia pelo seu número.
+        </p>
+
+        <div class="campo">
+            <label for="api-token">Seu token</label>
+            <div class="token-linha">
+                <input type="text" id="api-token" value="••••••••••••••••••••••••" readonly>
+                <button class="btn secundario pequeno" id="btn-ver-token">Mostrar</button>
+                <button class="btn secundario pequeno" id="btn-copiar-token">Copiar</button>
+                <button class="btn perigo pequeno" id="btn-regerar-token">Gerar novo</button>
+            </div>
+            <div class="dica">
+                Gerar um token novo invalida o atual na hora — atualize seu sistema antes.
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Enviar uma mensagem</label>
+<pre class="exemplo">curl -X POST {{ base_api }}/api/v1/mensagem \
+  -H <span class="c">"Authorization: Bearer SEU_TOKEN"</span> \
+  -H <span class="c">"Content-Type: application/json"</span> \
+  -d '{"numero":"5544999998888","mensagem":"Seu pedido saiu para entrega!"}'</pre>
+            <div class="dica">
+                Responde <strong>202</strong> na hora com um <code>id_envio</code>. A mensagem
+                sai em seguida, com “digitando…” proporcional ao texto — de 15 a 40 segundos.
+                Consulte o resultado em <code>GET /api/v1/envio/&lt;id_envio&gt;</code>.
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Enviar uma imagem</label>
+<pre class="exemplo">curl -X POST {{ base_api }}/api/v1/imagem \
+  -H <span class="c">"Authorization: Bearer SEU_TOKEN"</span> \
+  -H <span class="c">"Content-Type: application/json"</span> \
+  -d '{"numero":"5544999998888","imagem":"https://.../foto.jpg","legenda":"Chegou!"}'</pre>
+            <div class="dica">
+                <code>imagem</code> aceita URL pública ou base64. Para enviar sem a espera da
+                digitação, acrescente <code>"typing": false</code>.
+            </div>
+        </div>
+        <div class="aviso" id="aviso-api" role="status"></div>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.ESTADO_INICIAL = {
+        temInstancia: {{ 'true' if instancia else 'false' }},
+        status: {{ (instancia.status if instancia else 'ausente') | tojson }}
+    };
+</script>
+<script src="{{ url_for('static', filename='js/painel.js') }}"></script>
+{% endblock %}

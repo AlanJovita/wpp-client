@@ -1,0 +1,513 @@
+/* wpp-client — minimalista, inspirado na identidade WhatsApp Business.
+   Sem fonte externa e sem CDN: a pilha abaixo cai em Segoe UI / Roboto /
+   Helvetica, que é o que as páginas do WhatsApp Business usam quando a
+   Optimistic (fonte proprietária da Meta) não está disponível. */
+
+:root {
+    --verde: #1dab61;
+    --verde-escuro: #128c4a;
+    --verde-claro: #e7f7ee;
+    --verde-profundo: #0b3d2c;
+
+    --tinta: #111b21;
+    --tinta-media: #5e6b73;
+    --tinta-fraca: #8696a0;
+
+    --fundo: #ffffff;
+    --fundo-suave: #f6f8f8;
+    --borda: #e4e8ea;
+
+    --vermelho: #d7263d;
+    --vermelho-claro: #fdeaec;
+    --ambar: #a86b00;
+    --ambar-claro: #fff6e5;
+
+    --raio: 18px;
+    --raio-pequeno: 12px;
+    --sombra: 0 1px 2px rgba(17, 27, 33, .04), 0 8px 24px rgba(17, 27, 33, .05);
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    margin: 0;
+    font-family: "Optimistic Display", "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--tinta);
+    background: var(--fundo-suave);
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+    margin: 0;
+    letter-spacing: -.021em;
+    line-height: 1.2;
+    font-weight: 700;
+}
+
+h1 { font-size: 2rem; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1rem; }
+
+p { margin: 0; }
+
+a { color: var(--verde-escuro); }
+
+/* ----------------------------------------------------------------- layout */
+
+.topo {
+    background: var(--fundo);
+    border-bottom: 1px solid var(--borda);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.topo-interno,
+.conteudo {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.topo-interno {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 68px;
+}
+
+.marca {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    white-space: nowrap;
+}
+
+.marca-icone {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border-radius: 50%;
+    background: var(--verde);
+    display: grid;
+    place-items: center;
+}
+
+.marca-icone svg { width: 18px; height: 18px; fill: #fff; }
+
+.topo-conta {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+}
+
+.topo-empresa {
+    font-size: .875rem;
+    color: var(--tinta-media);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.conteudo { padding-top: 32px; padding-bottom: 72px; }
+
+.cabecalho-pagina { margin-bottom: 28px; }
+
+.cabecalho-pagina p {
+    color: var(--tinta-media);
+    margin-top: 8px;
+    max-width: 52ch;
+}
+
+/* ------------------------------------------------------------------ cartão */
+
+.cartao {
+    background: var(--fundo);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    padding: 24px;
+    margin-bottom: 18px;
+    box-shadow: var(--sombra);
+}
+
+.cartao-topo {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.cartao-topo h2 { flex: 1 1 auto; min-width: 0; }
+
+.cartao-sub {
+    color: var(--tinta-media);
+    font-size: .9375rem;
+    margin-top: 6px;
+}
+
+.cartao.oculto { display: none; }
+
+/* ------------------------------------------------------------------ campos */
+
+.campo { margin-top: 20px; }
+
+.campo > label {
+    display: block;
+    font-weight: 600;
+    font-size: .9375rem;
+    margin-bottom: 6px;
+}
+
+.campo .dica {
+    color: var(--tinta-media);
+    font-size: .8125rem;
+    margin-top: 6px;
+}
+
+input[type="text"],
+input[type="time"],
+input[type="number"],
+textarea,
+select {
+    width: 100%;
+    font: inherit;
+    font-size: .9375rem;
+    color: var(--tinta);
+    background: var(--fundo);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio-pequeno);
+    padding: 11px 14px;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+textarea { resize: vertical; min-height: 92px; line-height: 1.5; }
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--verde);
+    box-shadow: 0 0 0 3px rgba(29, 171, 97, .15);
+}
+
+input[type="time"] { width: auto; min-width: 120px; }
+
+.linha-tempo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    color: var(--tinta-media);
+    font-size: .9375rem;
+}
+
+/* interruptor */
+
+.interruptor {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.interruptor input { position: absolute; opacity: 0; pointer-events: none; }
+
+.interruptor-trilha {
+    width: 44px;
+    height: 26px;
+    flex: 0 0 44px;
+    border-radius: 999px;
+    background: #cfd8dc;
+    position: relative;
+    transition: background .18s;
+}
+
+.interruptor-trilha::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+    transition: transform .18s;
+}
+
+.interruptor input:checked + .interruptor-trilha { background: var(--verde); }
+.interruptor input:checked + .interruptor-trilha::after { transform: translateX(18px); }
+.interruptor input:focus-visible + .interruptor-trilha { box-shadow: 0 0 0 3px rgba(29, 171, 97, .25); }
+
+.interruptor-texto { font-weight: 600; font-size: .9375rem; }
+
+/* dias da semana */
+
+.dias { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.dia {
+    cursor: pointer;
+    user-select: none;
+}
+
+.dia input { position: absolute; opacity: 0; pointer-events: none; }
+
+.dia span {
+    display: grid;
+    place-items: center;
+    min-width: 46px;
+    padding: 9px 10px;
+    border: 1px solid var(--borda);
+    border-radius: 999px;
+    font-size: .875rem;
+    font-weight: 600;
+    color: var(--tinta-media);
+    transition: all .15s;
+}
+
+.dia input:checked + span {
+    background: var(--verde-claro);
+    border-color: var(--verde);
+    color: var(--verde-profundo);
+}
+
+.dia input:focus-visible + span { box-shadow: 0 0 0 3px rgba(29, 171, 97, .2); }
+
+/* ------------------------------------------------------------------ botões */
+
+.btn {
+    font: inherit;
+    font-size: .9375rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 11px 22px;
+    cursor: pointer;
+    background: var(--verde);
+    color: #fff;
+    transition: background .15s, border-color .15s, color .15s, opacity .15s;
+    white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) { background: var(--verde-escuro); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn:focus-visible { outline: 3px solid rgba(29, 171, 97, .35); outline-offset: 2px; }
+
+.btn.secundario {
+    background: transparent;
+    color: var(--tinta);
+    border-color: var(--borda);
+}
+
+.btn.secundario:hover:not(:disabled) { background: var(--fundo-suave); border-color: var(--tinta-fraca); }
+
+.btn.perigo { background: transparent; color: var(--vermelho); border-color: #f2c6cc; }
+.btn.perigo:hover:not(:disabled) { background: var(--vermelho-claro); }
+
+.btn.pequeno { padding: 8px 16px; font-size: .875rem; }
+
+.btn-largo { width: 100%; }
+
+.acoes {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 22px;
+    align-items: center;
+}
+
+.acoes.direita { justify-content: flex-end; }
+
+/* ------------------------------------------------------------------- selos */
+
+.selo {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: .8125rem;
+    font-weight: 600;
+    padding: 5px 13px 5px 11px;
+    border-radius: 999px;
+    background: var(--fundo-suave);
+    color: var(--tinta-media);
+    white-space: nowrap;
+}
+
+.selo::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: 0 0 8px;
+}
+
+.selo.conectada { background: var(--verde-claro); color: var(--verde-profundo); }
+.selo.conectando, .selo.criando { background: var(--ambar-claro); color: var(--ambar); }
+.selo.desconectada { background: var(--vermelho-claro); color: var(--vermelho); }
+
+.selo.conectando::before { animation: pulsar 1.4s ease-in-out infinite; }
+
+@keyframes pulsar { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* --------------------------------------------------------------- conexão */
+
+.numero-conectado {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    margin-top: 14px;
+}
+
+.qr-area {
+    margin-top: 22px;
+    padding: 24px;
+    background: var(--fundo-suave);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio-pequeno);
+    text-align: center;
+}
+
+.qr-area img {
+    width: 240px;
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    background: #fff;
+    display: block;
+    margin: 0 auto 16px;
+}
+
+.qr-passos {
+    text-align: left;
+    max-width: 330px;
+    margin: 0 auto;
+    color: var(--tinta-media);
+    font-size: .875rem;
+    padding-left: 20px;
+}
+
+.qr-passos li { margin-bottom: 4px; }
+
+/* ---------------------------------------------------------------- token */
+
+.token-linha { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+.token-linha input {
+    flex: 1 1 260px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .8125rem;
+    letter-spacing: .02em;
+}
+
+pre.exemplo {
+    margin: 16px 0 0;
+    padding: 16px;
+    background: var(--verde-profundo);
+    color: #d8f3e4;
+    border-radius: var(--raio-pequeno);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .8125rem;
+    line-height: 1.6;
+    overflow-x: auto;
+}
+
+pre.exemplo .c { color: #8fd0ae; }
+
+/* ----------------------------------------------------------- publicar status */
+
+.arquivo {
+    display: block;
+    border: 1px dashed var(--borda);
+    border-radius: var(--raio-pequeno);
+    padding: 22px;
+    text-align: center;
+    cursor: pointer;
+    color: var(--tinta-media);
+    font-size: .9375rem;
+    transition: border-color .15s, background .15s;
+}
+
+.arquivo:hover { border-color: var(--verde); background: var(--verde-claro); }
+.arquivo input { position: absolute; opacity: 0; pointer-events: none; }
+.arquivo strong { color: var(--verde-escuro); }
+
+.previa {
+    margin-top: 16px;
+    display: none;
+}
+
+.previa img {
+    max-width: 200px;
+    max-height: 260px;
+    border-radius: var(--raio-pequeno);
+    border: 1px solid var(--borda);
+    display: block;
+}
+
+/* -------------------------------------------------------------- avisos */
+
+.aviso {
+    border-radius: var(--raio-pequeno);
+    padding: 12px 16px;
+    font-size: .9375rem;
+    margin-top: 16px;
+    display: none;
+}
+
+.aviso.visivel { display: block; }
+.aviso.ok { background: var(--verde-claro); color: var(--verde-profundo); }
+.aviso.erro { background: var(--vermelho-claro); color: var(--vermelho); }
+.aviso.neutro { background: var(--fundo-suave); color: var(--tinta-media); }
+
+/* --------------------------------------------------------------- login */
+
+.login-tela {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--fundo-suave);
+}
+
+.login-caixa {
+    width: 100%;
+    max-width: 420px;
+    background: var(--fundo);
+    border: 1px solid var(--borda);
+    border-radius: 24px;
+    padding: 40px 32px;
+    box-shadow: var(--sombra);
+}
+
+.login-caixa .marca { justify-content: center; margin-bottom: 28px; }
+
+.login-caixa h1 { font-size: 1.5rem; text-align: center; }
+
+.login-caixa .cartao-sub { text-align: center; margin-bottom: 26px; }
+
+.login-rodape {
+    text-align: center;
+    color: var(--tinta-fraca);
+    font-size: .8125rem;
+    margin-top: 24px;
+}
+
+/* ---------------------------------------------------------------- mobile */
+
+@media (max-width: 640px) {
+    h1 { font-size: 1.625rem; }
+    .conteudo { padding-top: 24px; }
+    .cartao { padding: 20px; border-radius: 14px; }
+    .topo-empresa { display: none; }
+    .acoes .btn { flex: 1 1 auto; }
+    .dia span { min-width: 40px; padding: 9px 6px; }
+}

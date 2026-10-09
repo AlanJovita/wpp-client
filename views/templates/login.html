@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Entrar — WhatsApp Prêmio Sistemas{% endblock %}
+{% block classe_body %}login-tela{% endblock %}
+
+{% block corpo %}
+<main class="login-caixa">
+    {% include "components/marca.html" %}
+
+    <h1>Conecte seu WhatsApp</h1>
+    <p class="cartao-sub">Entre com o CNPJ cadastrado na Prêmio Sistemas.</p>
+
+    {% if erro %}
+    <div class="aviso erro visivel" role="alert">{{ erro }}</div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('auth.login') }}" novalidate>
+        <div class="campo">
+            <label for="cnpj">CNPJ</label>
+            <input type="text" id="cnpj" name="cnpj" value="{{ cnpj or '' }}"
+                   inputmode="numeric" autocomplete="off" autofocus
+                   placeholder="00.000.000/0000-00" maxlength="18" required>
+            <div class="dica">Pode digitar com ou sem pontuação.</div>
+        </div>
+
+        <div class="acoes">
+            <button type="submit" class="btn btn-largo">Entrar</button>
+        </div>
+    </form>
+
+    <p class="login-rodape">
+        Cadastro bloqueado ou cancelado não tem acesso.<br>
+        Dúvidas? Fale com o suporte da Prêmio Sistemas.
+    </p>
+</main>
+
+<script>
+    // Máscara de CNPJ apenas visual — o servidor reduz a dígitos de todo modo
+    document.getElementById("cnpj").addEventListener("input", (ev) => {
+        const d = ev.target.value.replace(/\D/g, "").slice(0, 14);
+        ev.target.value = d
+            .replace(/^(\d{2})(\d)/, "$1.$2")
+            .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+            .replace(/\.(\d{3})(\d)/, ".$1/$2")
+            .replace(/(\d{4})(\d)/, "$1-$2");
+    });
+</script>
+{% endblock %}

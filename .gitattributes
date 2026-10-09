@@ -1,0 +1,19 @@
+# Este projeto é desenvolvido no Windows e roda em Linux (Docker/VPS).
+# Todo arquivo de texto é normalizado para LF no repositório E no checkout.
+#
+# Não é preferência de estilo: um .sh com CRLF falha no Linux com
+# "bad interpreter: /usr/bin/env bash^M", e um Dockerfile com CRLF produz
+# imagens com erros difíceis de ler.
+* text=auto eol=lf
+
+# Explícitos, para não depender da heurística do text=auto
+*.sh        text eol=lf
+*.py        text eol=lf
+*.sql       text eol=lf
+*.html      text eol=lf
+*.css       text eol=lf
+*.js        text eol=lf
+*.md        text eol=lf
+*.txt       text eol=lf
+Dockerfile  text eol=lf
+.env.example text eol=lf
