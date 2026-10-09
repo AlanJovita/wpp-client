@@ -15,6 +15,13 @@ RUN mkdir -p logs
 
 EXPOSE 2002
 
+# Healthcheck próprio, em stdlib: a imagem slim NÃO tem curl nem wget, então um
+# healthcheck baseado neles (o padrão do Coolify) falharia por binário ausente e
+# marcaria o container como unhealthy mesmo com o app respondendo.
+# start-period cobre a aplicação do schema na subida.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request as u, sys; sys.exit(0 if u.urlopen('http://127.0.0.1:2002/health', timeout=4).status == 200 else 1)"
+
 # UM worker, várias threads — obrigatório.
 #
 # O estado em memória (cache do QR, janela de repetição da saudação, fila de

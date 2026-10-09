@@ -118,7 +118,27 @@ instâncias.
 3. Variáveis do `.env.example` no painel do Coolify (nunca no git).
 4. Porta exposta **2002**; Traefik roteia `wpp.premiosistemas.com.br` com SSL.
 5. `PANEL_BASE_URL=https://wpp.premiosistemas.com.br`.
-6. Healthcheck: `GET /health`.
+6. Healthcheck: `GET /health`. O Dockerfile já declara um `HEALTHCHECK` em
+   stdlib do Python — **a imagem slim não tem curl nem wget**, então um
+   healthcheck baseado neles falha por binário ausente. Se ligar o healthcheck
+   do Coolify, aponte o path para `/health`, não `/`.
+
+### Se o domínio responder "no available server"
+
+Isso é 503 do Traefik: há rota para o domínio, mas nenhum backend saudável.
+Quase sempre significa que o container está em loop de reinício, e a causa mais
+provável é o banco — `criar_app()` **aborta de propósito** se não aplicar o
+schema, então credencial ou endereço errados matam o worker no boot.
+
+```bash
+docker inspect <container> --format '{{.RestartCount}} {{.State.ExitCode}}'
+docker logs --tail 50 <container> | grep -i schema
+```
+
+`2003 (HY000): Can't connect` é **endereço** errado (ninguém escutando);
+`1045 Access denied` é **credencial**. Veja a nota do `DB_HOST` no
+`.env.example`: tem de ser o nome do container na rede `coolify`, nunca o IP
+público — o MariaDB publica `1999->3306`, logo `<ip-público>:3306` não existe.
 
 > ⚠️ **Um worker, várias threads.** O `CMD` do Dockerfile usa
 > `gunicorn -w 1 --threads 64 -k gthread`. Todo o estado acima é por processo:
