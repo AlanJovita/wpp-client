@@ -220,12 +220,15 @@ input[type="time"] { width: auto; min-width: 120px; }
 
 .interruptor input { position: absolute; opacity: 0; pointer-events: none; }
 
+/* Desligado = vermelho, ligado = verde. O estado também fica na POSIÇÃO do
+   botão, não só na cor: vermelho e verde são justamente o par que a daltonia
+   mais comum confunde, e cor sozinha não pode ser o único sinal. */
 .interruptor-trilha {
     width: 44px;
     height: 26px;
     flex: 0 0 44px;
     border-radius: 999px;
-    background: #cfd8dc;
+    background: var(--vermelho);
     position: relative;
     transition: background .18s;
 }
@@ -239,13 +242,18 @@ input[type="time"] { width: auto; min-width: 120px; }
     height: 20px;
     border-radius: 50%;
     background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+    /* sombra mais firme que a original: agora o botão repousa sobre fundo
+       saturado nos dois estados, e a borda precisa se sustentar */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
     transition: transform .18s;
 }
 
 .interruptor input:checked + .interruptor-trilha { background: var(--verde); }
 .interruptor input:checked + .interruptor-trilha::after { transform: translateX(18px); }
-.interruptor input:focus-visible + .interruptor-trilha { box-shadow: 0 0 0 3px rgba(29, 171, 97, .25); }
+
+/* O anel de foco acompanha o estado, senão fica um halo verde num botão vermelho */
+.interruptor input:focus-visible + .interruptor-trilha { box-shadow: 0 0 0 3px rgba(215, 38, 61, .3); }
+.interruptor input:checked:focus-visible + .interruptor-trilha { box-shadow: 0 0 0 3px rgba(29, 171, 97, .3); }
 
 .interruptor-texto { font-weight: 600; font-size: .9375rem; }
 
