@@ -111,8 +111,11 @@ def esquecer_instancia(instancia: str) -> None:
 
 # -------------------------------------------------------------------- regra
 
-def texto_para_responder(configuracoes: dict) -> tuple[str | None, int]:
-    """Decide o que responder agora. Devolve (texto ou None, janela_horas).
+def texto_para_responder(configuracoes: dict) -> tuple[str | None, int, str | None]:
+    """Decide o que responder agora. Devolve (texto ou None, janela_horas, motivo).
+
+    `motivo` só vem preenchido quando NÃO há texto — é o que permite distinguir
+    "o bot quebrou" de "o bot decidiu não responder".
 
     Fora do horário manda só a ausência — nunca saudação + ausência em sequência.
     """
@@ -121,22 +124,24 @@ def texto_para_responder(configuracoes: dict) -> tuple[str | None, int]:
     janela = int(saudacao.get("janela_horas") or config.SAUDACAO_JANELA_HORAS)
 
     if not horario_service.esta_aberto(horario):
-        return horario_service.mensagem_fora(horario), janela
+        return horario_service.mensagem_fora(horario), janela, None
 
     if not saudacao.get("ativo"):
-        return None, janela
-    return (saudacao.get("mensagem") or MSG_PADRAO), janela
+        return None, janela, "saudacao_desligada"
+    return (saudacao.get("mensagem") or MSG_PADRAO), janela, None
 
 
-def preparar(instancia: str, numero: str, configuracoes: dict) -> str | None:
-    """Texto a enviar para este número agora, ou None se não há o que mandar.
+def preparar(
+    instancia: str, numero: str, configuracoes: dict
+) -> tuple[str | None, str | None]:
+    """(texto, motivo) para este número agora. Um dos dois é sempre None.
 
     Já consome a janela de repetição — chame no fluxo do webhook (síncrono),
     antes de jogar o envio na fila.
     """
-    texto, janela = texto_para_responder(configuracoes)
+    texto, janela, motivo = texto_para_responder(configuracoes)
     if not texto:
-        return None
+        return None, motivo
     if not _consumir_janela(instancia, numero, janela):
-        return None
-    return texto
+        return None, "janela_de_repeticao"
+    return texto, None

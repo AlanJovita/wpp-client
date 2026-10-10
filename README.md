@@ -321,6 +321,53 @@ sempre aberto. Comparações no fuso `ATENDIMENTO_TZ`.
 
 ---
 
+## Log remoto na api-master
+
+Erros e **motivos de mensagem não enviada** vão para `POST {MASTER_API_URL}/erros`
+com `id_software=21`. Campos: `id_cliente`, `descricao`, `versao`, `classe`,
+`metodo`, `linha`, `qtd`, `classificacao`, `data`.
+
+`classificacao` distingue os dois tipos:
+
+| Valor | Significado |
+|---|---|
+| `0` | erro técnico (exceção, recusa da Evolution, banco fora) |
+| `1` | mensagem não enviada, com o motivo |
+
+Motivos registrados em `descricao` (`mensagem nao enviada: <motivo> \| instancia=… \| numero=…`):
+
+| Motivo | Quando |
+|---|---|
+| `saudacao_desligada` | dentro do horário, mas a saudação está desativada |
+| `janela_de_repeticao` | o número já foi saudado dentro de `janela_horas` |
+| `origem_ignorada` | grupo, lista de transmissão, canal |
+| `numero_invalido` | remetente que não é telefone discável |
+| `sem_remetente` | payload sem `remoteJid` |
+| `fila_cheia` | `FILA_MAX_PENDENTES` atingido |
+| `falha_no_envio` | a decisão foi enviar e a Evolution recusou |
+
+Os motivos "legítimos" são registrados de propósito: sem eles, *"o bot não
+respondeu"* é indistinguível de *"o bot decidiu não responder"*.
+
+**Logar não custa caro aqui**, e isso é deliberado — o `syscon_app` dispara um
+POST síncrono a cada `log()`, que é um problema conhecido do ecossistema. Neste
+app o envio é assíncrono, com fila limitada (descarta em vez de crescer),
+deduplicação por janela (5 ocorrências iguais = 1 requisição com `qtd=5`) e
+disjuntor (api-master fora do ar pausa as tentativas).
+
+Todo `log.error(...)` do app é espelhado automaticamente por um
+`logging.Handler`, sem precisar de chamada extra em cada ponto. Onde o cliente
+importa, chame `log_remoto.erro(..., id_cliente=...)` direto, porque o handler
+não tem como saber de quem é o erro.
+
+> ⚠️ `POST /v1/erros` responde **200 "Erro registrado" sempre**, mesmo com
+> payload inválido — `LogBLL.setErroJson` engole a exceção e devolve `None`. Um
+> 200 prova o transporte, não a gravação.
+
+`GET /diagnostico` mostra o estado (fila, descartes, disjuntor) sem expor dado
+de cliente. `LOG_REMOTO_ATIVO=0` desliga; `LOG_REMOTO_NAO_ENVIADAS=0` mantém só
+os erros técnicos.
+
 ## Monitor de conexão
 
 Thread única, a cada `MONITOR_INTERVALO_S` (300s), por instância:

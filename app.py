@@ -11,7 +11,7 @@ import logging
 from flask import Flask
 
 import log_config
-from api import database
+from api import database, log_remoto
 from config import config
 from controllers.api_controller import api_v1
 from controllers.auth_controller import auth
@@ -50,6 +50,18 @@ def criar_app() -> Flask:
     def health():
         return {"status": "ok"}, 200
 
+    @app.route("/diagnostico")
+    def diagnostico():
+        """Estado operacional, sem dado de cliente — para checar de fora se a
+        fila de envios e o log remoto estão sadios."""
+        from services import fila_envio
+
+        return {
+            "versao": config.VERSAO,
+            "envios_pendentes": fila_envio.pendentes(),
+            "log_remoto": log_remoto.diagnostico(),
+        }, 200
+
     @app.errorhandler(404)
     def nao_encontrado(_erro):
         return {"sucesso": False, "mensagem": "Rota não encontrada"}, 404
@@ -66,11 +78,21 @@ def criar_app() -> Flask:
         log.error("Erro não tratado: %s", erro, exc_info=True)
         return {"sucesso": False, "mensagem": "Erro interno"}, 500
 
+    # o log remoto sobe ANTES do schema: se o banco falhar, é justamente esse
+    # erro que precisa chegar na api-master
+    log_remoto.iniciar()
+    if config.LOG_REMOTO_ATIVO:
+        espelho = log_remoto.ManipuladorMaster(level=logging.ERROR)
+        espelho.setFormatter(logging.Formatter("%(message)s"))
+        logging.getLogger().addHandler(espelho)
+
     try:
         database.executar_schema()
     except Exception as exc:
         # sem schema o app não serve para nada — falhe na subida, não no 1o uso
         log.critical("Não foi possível aplicar o schema: %s", exc)
+        log_remoto.erro(f"schema nao aplicado na subida: {exc}", classe="app",
+                        metodo="criar_app")
         raise
 
     monitor_service.iniciar()

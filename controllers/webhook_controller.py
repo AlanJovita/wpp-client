@@ -13,7 +13,9 @@ import logging
 
 from flask import Blueprint, request
 
+from api import log_remoto
 from config import config
+from log_config import mascarar_numero
 from models import configuracao as configuracao_model
 from models import instancia as instancia_model
 from services import (
@@ -75,34 +77,78 @@ def _conexao_atualizada(registro: dict, dados: dict) -> None:
 
 
 def _mensagem_recebida(registro: dict, dados: dict) -> None:
-    """Decide a saudação/ausência e joga o envio na fila. Não grava nada."""
+    """Decide a saudação/ausência e joga o envio na fila. Não grava nada.
+
+    Todo caminho que termina sem enviar registra o motivo na api-master — é o
+    que torna "o bot não respondeu" diagnosticável sem acesso ao servidor.
+    """
+    nome = registro["nome_instancia"]
+    id_cliente = registro["id_cliente"]
+
     chave = dados.get("key") or {}
     if chave.get("fromMe"):
-        return
+        return  # eco da própria mensagem: silêncio é o comportamento correto
 
     jid = str(chave.get("remoteJid") or "")
-    if not jid or jid.endswith(SUFIXOS_IGNORADOS):
-        return  # grupo, lista de transmissão, canal
+    if not jid:
+        log_remoto.nao_enviada("sem_remetente", id_cliente=id_cliente, instancia=nome)
+        return
+    if jid.endswith(SUFIXOS_IGNORADOS):
+        log_remoto.nao_enviada(
+            "origem_ignorada", f"jid={jid.split('@')[-1]}",
+            id_cliente=id_cliente, instancia=nome,
+        )
+        return
 
     numero = messaging_service.normalizar_numero(jid.split("@")[0])
     if not numero:
+        log_remoto.nao_enviada(
+            "numero_invalido", f"bruto={jid.split('@')[0][:6]}…",
+            id_cliente=id_cliente, instancia=nome,
+        )
         return
 
-    nome = registro["nome_instancia"]
-    configuracoes = configuracao_model.por_cliente(registro["id_cliente"])
+    mascarado = mascarar_numero(numero)
+
+    try:
+        configuracoes = configuracao_model.por_cliente(id_cliente)
+    except Exception as exc:
+        log_remoto.erro(
+            f"nao leu configuracoes do cliente: {exc}",
+            id_cliente=id_cliente, classe="webhook", metodo="_mensagem_recebida",
+        )
+        raise
 
     # consome a janela de repetição aqui, síncrono: duas mensagens seguidas do
     # mesmo contato não podem gerar duas saudações
-    texto = saudacao_service.preparar(nome, numero, configuracoes)
+    texto, motivo = saudacao_service.preparar(nome, numero, configuracoes)
     if not texto:
+        log_remoto.nao_enviada(
+            motivo or "sem_texto", id_cliente=id_cliente,
+            instancia=nome, numero_mascarado=mascarado,
+        )
         return
 
+    def enviar():
+        """Roda na fila. Falha aqui é o caso mais importante de registrar:
+        a decisão foi enviar e o envio não aconteceu."""
+        try:
+            return messaging_service.enviar_texto(nome, numero, texto, typing=True)
+        except Exception as exc:
+            log_remoto.nao_enviada(
+                "falha_no_envio", str(exc)[:300],
+                id_cliente=id_cliente, instancia=nome, numero_mascarado=mascarado,
+            )
+            raise
+
     try:
-        fila_envio.enfileirar(
-            messaging_service.enviar_texto, nome, numero, texto, typing=True
-        )
+        fila_envio.enfileirar(enviar)
     except fila_envio.FilaCheia as exc:
         log.warning("Saudação descartada em %s: %s", nome, exc)
+        log_remoto.nao_enviada(
+            "fila_cheia", str(exc), id_cliente=id_cliente,
+            instancia=nome, numero_mascarado=mascarado,
+        )
 
 
 # ------------------------------------------------------------------- rota

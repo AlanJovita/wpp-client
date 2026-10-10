@@ -124,16 +124,17 @@ checar(erro is not None, "janela 0 é recusada")
 conf_aberto = {"saudacao": {"ativo": True, "mensagem": "Olá!", "janela_horas": 12},
                "horario": valido}
 # dentro do horário: saudação, uma vez só
-texto1 = saudacao_service.preparar("cli_1", "5544999998888", conf_aberto)
-texto2 = saudacao_service.preparar("cli_1", "5544999998888", conf_aberto)
+texto1, motivo1 = saudacao_service.preparar("cli_1", "5544999998888", conf_aberto)
+texto2, motivo2 = saudacao_service.preparar("cli_1", "5544999998888", conf_aberto)
 esperado = "Olá!" if horario_service.esta_aberto(valido) else horario_service.mensagem_fora(valido)
-checar(texto1 == esperado, f"1a mensagem responde ({texto1!r})")
+checar(texto1 == esperado and motivo1 is None, f"1a mensagem responde ({texto1!r})")
 checar(texto2 is None, "2a mensagem do mesmo número na janela não responde")
-checar(saudacao_service.preparar("cli_1", "5544777776666", conf_aberto) is not None,
+checar(motivo2 == "janela_de_repeticao", f"e diz o motivo ({motivo2!r})")
+checar(saudacao_service.preparar("cli_1", "5544777776666", conf_aberto)[0] is not None,
        "outro número responde normalmente")
 
 saudacao_service.esquecer_instancia("cli_1")
-checar(saudacao_service.preparar("cli_1", "5544999998888", conf_aberto) is not None,
+checar(saudacao_service.preparar("cli_1", "5544999998888", conf_aberto)[0] is not None,
        "esquecer_instancia libera a janela")
 
 # fora do horário manda SÓ a ausência, nunca a saudação
@@ -145,10 +146,11 @@ fora = saudacao_service.texto_para_responder(conf_fechado)[0]
 checar(fora == "Estamos fechados." or horario_service.esta_aberto(conf_fechado["horario"]),
        "fora do horário responde a ausência, não a saudação")
 
-# saudação desligada e dentro do horário = silêncio
+# saudação desligada e dentro do horário = silêncio, COM motivo
 conf_mudo = {"saudacao": {"ativo": False, "mensagem": "Olá!"}, "horario": None}
-checar(saudacao_service.texto_para_responder(conf_mudo)[0] is None,
-       "saudação desligada e aberto = não responde")
+mudo_texto, _, mudo_motivo = saudacao_service.texto_para_responder(conf_mudo)
+checar(mudo_texto is None, "saudação desligada e aberto = não responde")
+checar(mudo_motivo == "saudacao_desligada", f"e diz o motivo ({mudo_motivo!r})")
 
 print("\n[status_service]")
 from services import status_service  # noqa: E402
@@ -384,6 +386,91 @@ checar(r.status_code == 200 and r.get_json()["dados"]["token"] == REGISTRO["toke
 # 5) remover exige confirmação explícita
 r = cliente_http.delete("/api/instancia")
 checar(r.status_code == 400, "DELETE /api/instancia sem confirmar=sim = 400")
+
+# ---- log remoto na api-master
+print("\n[log remoto]")
+from api import log_remoto  # noqa: E402
+
+enviados_log = []
+log_remoto._enviar = lambda carga: (enviados_log.append(carga) or True)
+log_remoto.iniciar()
+
+
+def drenar(esperado=1, limite=60):
+    for _ in range(limite):
+        if len(enviados_log) >= esperado and log_remoto._fila.qsize() == 0:
+            break
+        time.sleep(0.05)
+
+
+# O app real já subiu antes neste teste e instalou o ManipuladorMaster, então a
+# fila carrega os erros legítimos dos casos anteriores. Drena e zera para medir
+# só o que este bloco produz.
+time.sleep(0.4)
+enviados_log.clear()
+
+log_remoto.erro("banco fora do ar", id_cliente=42, classe="database", metodo="pool",
+                linha=28)
+drenar()
+checar(len(enviados_log) == 1, f"erro enfileirado e enviado ({len(enviados_log)})")
+if enviados_log:
+    c = enviados_log[0]
+    checar(c["id_software"] == 21, f"id_software = 21 (obtido {c['id_software']})")
+    checar(c["id_cliente"] == 42, "id_cliente vai no payload")
+    checar(c["descricao"] == "banco fora do ar", "descricao preservada")
+    checar(c["classe"] == "database" and c["metodo"] == "pool" and c["linha"] == 28,
+           "classe, metodo e linha preenchidos")
+    checar(c["versao"] == config.VERSAO, "versao do app no payload")
+    checar(c["qtd"] == 1, "primeira ocorrência tem qtd=1")
+    checar(set(c) >= {"id_cliente", "id_software", "descricao", "versao", "classe",
+                      "metodo", "linha", "qtd", "status", "classificacao", "data"},
+           "payload tem todos os campos que a api-master consome")
+
+# deduplicação: a mesma ocorrência repetida não vira N requisições
+enviados_log.clear()
+for _ in range(5):
+    log_remoto.erro("erro repetido", id_cliente=42, classe="x", metodo="y")
+drenar()
+checar(len(enviados_log) == 1, f"5 ocorrências iguais = 1 envio ({len(enviados_log)})")
+
+# motivo de não envio
+enviados_log.clear()
+log_remoto.nao_enviada("janela_de_repeticao", id_cliente=42, instancia="cli_42",
+                       numero_mascarado="5544…8888")
+drenar()
+checar(len(enviados_log) == 1, "motivo de não envio é registrado")
+if enviados_log:
+    d = enviados_log[0]["descricao"]
+    checar("mensagem nao enviada: janela_de_repeticao" in d, f"descricao do motivo ({d!r})")
+    checar("cli_42" in d and "5544…8888" in d, "instância e número mascarado no texto")
+    checar(enviados_log[0]["classificacao"] == 1,
+           "não-envio usa classificacao=1 (distingue de erro técnico)")
+
+# o handler do logging padrão espelha log.error automaticamente
+enviados_log.clear()
+import logging as _logging  # noqa: E402
+
+_h = log_remoto.ManipuladorMaster(level=_logging.ERROR)
+_h.setFormatter(_logging.Formatter("%(message)s"))
+_logging.getLogger("teste.espelho").addHandler(_h)
+_logging.getLogger("teste.espelho").error("falha espelhada")
+drenar()
+checar(len(enviados_log) == 1, "log.error é espelhado para a api-master")
+
+# desligado = nada sai
+enviados_log.clear()
+config.LOG_REMOTO_ATIVO = False
+log_remoto.erro("nao deve sair", id_cliente=1, classe="z", metodo="z")
+drenar(esperado=0, limite=10)
+checar(len(enviados_log) == 0, "LOG_REMOTO_ATIVO=0 não envia nada")
+config.LOG_REMOTO_ATIVO = True
+
+# api-master fora do ar não pode derrubar nem travar o app
+enviados_log.clear()
+log_remoto._enviar = lambda carga: (_ for _ in ()).throw(RuntimeError("api fora"))
+log_remoto.erro("com api fora", id_cliente=7, classe="a", metodo="b")
+time.sleep(0.4)
+checar(log_remoto._thread.is_alive(), "thread do log sobrevive a falha do envio")
 
 print("\n" + "=" * 60)
 if falhas:

@@ -35,7 +35,12 @@ def _booleano(nome: str, padrao: bool) -> bool:
     return valor.lower() in ("1", "true", "sim", "s", "on")
 
 
+VERSAO = "1.0.0"
+
+
 class Config:
+    VERSAO = VERSAO
+
     # ---------------------------------------------------------- Evolution API
     EVOLUTION_URL = _texto("EVOLUTION_URL").rstrip("/")
     EVOLUTION_API_KEY = _texto("EVOLUTION_API_KEY")
@@ -80,6 +85,21 @@ class Config:
     # --------------------------------------------------------------- monitor
     MONITOR_ATIVO = _booleano("MONITOR_ATIVO", True)
     MONITOR_INTERVALO_S = _inteiro("MONITOR_INTERVALO_S", 300)
+
+    # --------------------------------------------- log remoto na api-master
+    LOG_REMOTO_ATIVO = _booleano("LOG_REMOTO_ATIVO", True)
+    LOG_REMOTO_ID_SOFTWARE = _inteiro("LOG_REMOTO_ID_SOFTWARE", 21)
+    # Fila do envio assíncrono: logar NUNCA pode bloquear webhook nem request
+    LOG_REMOTO_FILA_MAX = _inteiro("LOG_REMOTO_FILA_MAX", 200)
+    # Mesma ocorrência não é reenviada dentro desta janela; as repetições
+    # viram `qtd` no próximo envio
+    LOG_REMOTO_DEDUP_S = _inteiro("LOG_REMOTO_DEDUP_S", 300)
+    # Disjuntor: após N falhas seguidas, para de tentar por este tempo
+    LOG_REMOTO_FALHAS_MAX = _inteiro("LOG_REMOTO_FALHAS_MAX", 5)
+    LOG_REMOTO_PAUSA_S = _inteiro("LOG_REMOTO_PAUSA_S", 300)
+    # Também manda para a api-master os motivos de mensagem não enviada, não
+    # só erros. Desligue se quiser apenas falha técnica.
+    LOG_REMOTO_NAO_ENVIADAS = _booleano("LOG_REMOTO_NAO_ENVIADAS", True)
 
     # ---------------------------------------------------------------- limites
     MAX_IMAGEM_MB = _inteiro("MAX_IMAGEM_MB", 5)
